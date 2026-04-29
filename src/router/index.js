@@ -14,21 +14,26 @@ const router = createRouter({
       path: '/dashboard',
       name: 'dashboard',
       component: DashboardView,
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, title: 'Dashboard BSI Agen' },
     },
     {
       path: '/upload',
       name: 'upload',
       component: UploadView,
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, title: 'Upload - Dashboard BSI Agen' },
     },
     {
       path: '/login',
       name: 'login',
       component: LoginView,
-      meta: { requiresAuth: false },
+      meta: { requiresAuth: false, title: 'Login - Dashboard BSI Agen' },
     },
   ],
+})
+
+// Dynamical Page Title
+router.afterEach((to) => {
+  document.title = to.meta.title
 })
 
 // Route Guard
