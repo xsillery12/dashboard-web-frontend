@@ -33,9 +33,9 @@ ChartJS.register(
 
 // State
 const filters = ref({ regions: [], areas: [], cabangs: [], bulans: [] })
-const selectedRegion = ref('')
-const selectedArea = ref('')
-const selectedCabang = ref('')
+const selectedRegion = ref([])
+const selectedArea = ref([])
+const selectedCabang = ref([])
 const selectedMonthFrom = ref('')
 const selectedMonthTo = ref('')
 
@@ -102,9 +102,9 @@ const formatCount = (n) => {
 // Get Filter Params
 const getParams = () => {
   const params = {}
-  if (selectedRegion.value) params.region = selectedRegion.value
-  if (selectedArea.value) params.area = selectedArea.value
-  if (selectedCabang.value) params.cabang = selectedCabang.value
+  if (selectedRegion.value.length) params.region = selectedRegion.value.join(',')
+  if (selectedArea.value.length) params.area = selectedArea.value.join(',')
+  if (selectedCabang.value.length) params.cabang = selectedCabang.value.join(',')
   if (selectedMonthFrom.value) params.month_from = selectedMonthFrom.value
   if (selectedMonthTo.value) params.month_to = selectedMonthTo.value
   return params
@@ -273,12 +273,21 @@ const trendOptions = {
 
 // Region Filter Changes
 watch(selectedRegion, async () => {
-  await refreshAreaOptions()
+  selectedArea.value = []
+  selectedCabang.value = []
+  const res = await api.getFilters({ region: selectedRegion.value.join(',') })
+  filters.value.areas = res.data.areas
+  filters.value.cabangs = res.data.cabangs
   await fetchAll()
 })
 
 watch(selectedArea, async () => {
-  await refreshCabangOptions()
+  selectedCabang.value = []
+  const res = await api.getFilters({
+    region: selectedRegion.value.join(','),
+    area: selectedArea.value.join(','),
+  })
+  filters.value.cabangs = res.data.cabangs
   await fetchAll()
 })
 
@@ -344,11 +353,38 @@ const totalPages = computed(() => {
     <div class="bg-linear-to-r from-teal-600 to-teal-400 rounded-xl shadow-sm p-4 mb-6">
       <p class="font-semibold text-white text-xl mb-4">Filter Data</p>
       <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-2">
-        <Dropdown v-model="selectedRegion" :options="filters.regions" placeholder="Semua Region" />
-        <Dropdown v-model="selectedArea" :options="filters.areas" placeholder="Semua Area" />
-        <Dropdown v-model="selectedCabang" :options="filters.cabangs" placeholder="Semua Cabang" />
-        <Dropdown v-model="selectedMonthFrom" :options="filters.bulans" placeholder="Dari Bulan" />
-        <Dropdown v-model="selectedMonthTo" :options="filters.bulans" placeholder="Sampai Bulan" />
+        <Dropdown
+          v-model="selectedRegion"
+          :options="filters.regions"
+          placeholder="Semua Region"
+          :multiple="true"
+        />
+        <Dropdown
+          v-model="selectedArea"
+          :options="filters.areas"
+          placeholder="Semua Area"
+          :multiple="true"
+        />
+        <Dropdown
+          v-model="selectedCabang"
+          :options="filters.cabangs"
+          placeholder="Semua Cabang"
+          :multiple="true"
+        />
+        <Dropdown
+          v-model="selectedMonthFrom"
+          :options="filters.bulans"
+          placeholder="Dari Bulan"
+          labelKey="label"
+          valueKey="value"
+        />
+        <Dropdown
+          v-model="selectedMonthTo"
+          :options="filters.bulans"
+          placeholder="Sampai Bulan"
+          labelKey="label"
+          valueKey="value"
+        />
       </div>
     </div>
 
