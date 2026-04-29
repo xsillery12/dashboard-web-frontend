@@ -37,7 +37,7 @@ onMounted(async () => {
   }, 1000)
 
   // await fetchFilters()
-  await fetchAll()
+  // await fetchAll()
 })
 
 onUnmounted(() => {
