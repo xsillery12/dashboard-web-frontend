@@ -85,7 +85,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
       >
         {{ displayText }}
       </span>
-      <div class="flex items-center gap-1 flex-shrink-0">
+      <div class="flex items-center gap-1 shrink-0">
         <!-- Clear button -->
         <button
           v-if="multiple ? selectedValues.length > 0 : modelValue"
@@ -146,7 +146,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
       >
         <div
           :class="[
-            'w-4 h-4 rounded border flex items-center justify-center flex-shrink-0',
+            'w-4 h-4 rounded border flex items-center justify-center shrink-0',
             selectedValues.length === options.length
               ? 'bg-[#00A69F] border-[#00A69F]'
               : 'border-gray-300',
@@ -183,7 +183,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
         <div
           v-if="multiple"
           :class="[
-            'w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition',
+            'w-4 h-4 rounded border flex items-center justify-center shrink-0 transition',
             isSelected(opt) ? 'bg-[#00A69F] border-[#00A69F]' : 'border-gray-300',
           ]"
         >
@@ -204,7 +204,7 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
           </svg>
         </div>
         <!-- Dot untuk single -->
-        <div v-else class="w-4 h-4 flex items-center justify-center flex-shrink-0">
+        <div v-else class="w-4 h-4 flex items-center justify-center shrink-0">
           <div v-if="isSelected(opt)" class="w-2 h-2 rounded-full bg-[#00A69F]"></div>
         </div>
         <span class="text-sm text-gray-700">{{ getLabel(opt) }}</span>
