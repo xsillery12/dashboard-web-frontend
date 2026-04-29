@@ -36,7 +36,7 @@ onMounted(async () => {
     now.value = new Date()
   }, 1000)
 
-  await fetchFilters()
+  // await fetchFilters()
   await fetchAll()
 })
 
