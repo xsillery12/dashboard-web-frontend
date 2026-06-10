@@ -24,12 +24,19 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
+    // ← Skip interceptor untuk login & refresh endpoints
+    if (
+      originalRequest.url?.includes('/auth/login') ||
+      originalRequest.url?.includes('/auth/refresh')
+    ) {
+      return Promise.reject(error)
+    }
+
     // If 401 and not even Entry
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true
 
       try {
-        // Try to refresh Token
         const refreshToken = localStorage.getItem('refresh_token')
         if (!refreshToken) throw new Error('No refresh token')
 
@@ -42,15 +49,12 @@ api.interceptors.response.use(
         const newToken = res.data.access_token
         localStorage.setItem('access_token', newToken)
 
-        // Update Pinia Store
         const authStore = useAuthStore()
         authStore.accessToken = newToken
 
-        // Retry to Request new Token
         originalRequest.headers.Authorization = `Bearer ${newToken}`
         return api(originalRequest)
       } catch (refreshError) {
-        // Refresh Token juga expired -> logout
         const authStore = useAuthStore()
         authStore.logout()
         window.location.href = '/login'
@@ -65,7 +69,7 @@ api.interceptors.response.use(
 export default {
   // Auth
   login(email, password) {
-    return api.post('auth/login', { email, password })
+    return api.post('/auth/login', { email, password })
   },
   getMe() {
     return api.get('/auth/me')
@@ -105,11 +109,93 @@ export default {
   getAgenAktif(params = {}) {
     return api.get('/dashboard/stats/agen-aktif', { params })
   },
+  getTransaksiFilters(params = {}) {
+    return api.get('/dashboard/transaksi/filters', { params })
+  },
+  getTransaksiStats(params = {}) {
+    return api.get('/dashboard/transaksi/stats', { params })
+  },
+  getTransaksiProduk(params = {}) {
+    return api.get('/dashboard/transaksi/produk', { params })
+  },
+  getTransaksiPerRegion(params = {}) {
+    return api.get('/dashboard/transaksi/per-region', { params })
+  },
+  getTransaksiTraffic(params = {}) {
+    return api.get('/dashboard/transaksi/traffic', { params })
+  },
+  getTransaksiPareto(params = {}) {
+    return api.get('/dashboard/transaksi/pareto', { params })
+  },
+  getTopTransaksiAgen(params = {}) {
+    return api.get('/dashboard/transaksi/top-agen', { params })
+  },
+  getAllTransaksiAgen(params = {}) {
+    return api.get('/dashboard/transaksi/all-agen', { params })
+  },
+  getHomeStats(params = {}) {
+    return api.get('/dashboard/home/stats', { params })
+  },
+  getHomeSummary(params = {}) {
+    return api.get('/dashboard/home/summary', { params })
+  },
+  getHomeTrend(params = {}) {
+    return api.get('/dashboard/home/trend', { params })
+  },
+  getHomeTraffic(params = {}) {
+    return api.get('/dashboard/home/traffic', { params })
+  },
+  getHeartbeatFilters(params = {}) {
+    return api.get('/dashboard/heartbeat/filters', { params })
+  },
+  getHeartbeatStats(params = {}) {
+    return api.get('/dashboard/heartbeat/stats', { params })
+  },
+  getHeartbeatChartRegion(params = {}) {
+    return api.get('/dashboard/heartbeat/chart-region', { params })
+  },
+  getHeartbeatChartKategori(params = {}) {
+    return api.get('/dashboard/heartbeat/chart-kategori', { params })
+  },
+  getHeartbeatMap(params = {}) {
+    return api.get('/dashboard/heartbeat/map', { params })
+  },
+  getHeartbeatDetail(params = {}) {
+    return api.get('/dashboard/heartbeat/detail', { params })
+  },
 
   // Upload
-  uploadExcel(formData) {
+  uploadExcel(formData, onProgress) {
     return api.post('/upload/', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const percent = progressEvent.loaded / progressEvent.total
+          onProgress(percent)
+        }
+      },
+    })
+  },
+  uploadTransaksi(formData, onProgress) {
+    return api.post('/upload/transaksi', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const percent = progressEvent.loaded / progressEvent.total
+          onProgress(percent)
+        }
+      },
+    })
+  },
+  uploadHeartbeat(formData, onProgress) {
+    return api.post('/upload/heartbeat', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const percent = progressEvent.loaded / progressEvent.total
+          onProgress(percent)
+        }
+      },
     })
   },
 }

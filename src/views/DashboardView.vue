@@ -13,10 +13,11 @@ import {
   Legend,
   Filler,
 } from 'chart.js'
+import ChartDataLabels from 'chartjs-plugin-datalabels'
 import Dropdown from '@/components/Dropdown.vue'
 import PopUp from '@/components/PopUp.vue'
-import MapChart from '@/components/MapChart.vue'
 import ParetoChart from '@/components/ParetoChart.vue'
+import KPICards from '@/components/KPICards.vue'
 import api from '../services/api'
 
 ChartJS.register(
@@ -29,6 +30,7 @@ ChartJS.register(
   Tooltip,
   Legend,
   Filler,
+  ChartDataLabels,
 )
 
 // State
@@ -44,11 +46,11 @@ const device = ref([])
 const region = ref([])
 const aceh = ref([])
 const pareto = ref([])
-const mapData = ref([])
 const top10 = ref([])
 const loading = ref(false)
 const trend = ref([])
 const agenAktif = ref(0)
+let fetchSeq = 0
 
 const now = ref(new Date())
 let timer = null
@@ -90,6 +92,7 @@ const formatVolume = (n) => {
   if (n >= 1_000_000_000_000) return `Rp${(n / 1_000_000_000_000).toFixed(1)}T`
   if (n >= 1_000_000_000) return `Rp${(n / 1_000_000_000).toFixed(1)}M`
   if (n >= 1_000_000) return `Rp${(n / 1_000_000).toFixed(1)}Jt`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
   return `Rp${n?.toLocaleString()}`
 }
 
@@ -113,32 +116,32 @@ const getParams = () => {
 // Fetch All Data
 const fetchAll = async () => {
   loading.value = true
+  const seq = ++fetchSeq
   const params = getParams()
   try {
-    const [s, d, r, a, t, m, p, tr, ak] = await Promise.all([
+    const [s, d, r, a, t, p, tr, ak] = await Promise.all([
       api.getStats(params),
       api.getChartDevice(params),
       api.getChartRegion(params),
       api.getChartAceh(params),
       api.getTop10(params),
-      api.getMap(params),
       api.getPareto(params),
       api.getChartTrend(params),
       api.getAgenAktif(params),
     ])
+    if (seq !== fetchSeq) return
     stats.value = s.data
     device.value = d.data
     region.value = r.data
     aceh.value = a.data
     top10.value = t.data
-    mapData.value = m.data
     pareto.value = p.data
     trend.value = tr.data
     agenAktif.value = ak.data.agen_aktif
   } catch (err) {
     console.error(err)
   } finally {
-    loading.value = false
+    if (seq === fetchSeq) loading.value = false
   }
 }
 
@@ -150,8 +153,8 @@ const fetchFilters = async () => {
 
 // Tambah fungsi ini untuk refresh area & cabang
 const refreshAreaOptions = async () => {
-  selectedArea.value = ''
-  selectedCabang.value = ''
+  selectedArea.value = []
+  selectedCabang.value = []
   const res = await api.getFilters({ region: selectedRegion.value })
   filters.value.areas = res.data.areas
   filters.value.cabangs = res.data.cabangs
@@ -178,7 +181,7 @@ const deviceChartData = () => ({
     {
       label: 'Fee Agen',
       data: device.value.map((d) => d.fee_agen),
-      backgroundColor: '#34d399',
+      backgroundColor: '#f7b12f',
     },
   ],
 })
@@ -194,7 +197,7 @@ const regionChartData = () => ({
     {
       label: 'Fee Agen',
       data: region.value.map((r) => r.fee_agen),
-      backgroundColor: '#34d399',
+      backgroundColor: '#f7b12f',
     },
   ],
 })
@@ -210,7 +213,7 @@ const acehChartData = () => ({
     {
       label: 'Fee Agen',
       data: aceh.value.map((a) => a.fee_agen),
-      backgroundColor: '#34d399',
+      backgroundColor: '#f7b12f',
     },
   ],
 })
@@ -218,7 +221,12 @@ const acehChartData = () => ({
 const chartOptions = {
   responsive: true,
   maintainAspectRatio: false,
-  plugins: { legend: { position: 'bottom' } },
+  plugins: {
+    legend: { position: 'bottom' },
+    datalabels: {
+      display: false,
+    },
+  },
 }
 
 const trendChartData = () => ({
@@ -239,11 +247,11 @@ const trendChartData = () => ({
     {
       label: 'Fee Agen',
       data: trend.value.map((t) => t.fee_agen),
-      borderColor: '#34d399',
+      borderColor: '#f7b12f',
       backgroundColor: 'rgba(52, 211, 153, 0.1)',
       borderWidth: 2,
       pointRadius: 4,
-      pointBackgroundColor: '#34d399',
+      pointBackgroundColor: '#f7b12f',
       fill: true,
       tension: 0.4,
       yAxisID: 'y2',
@@ -254,12 +262,17 @@ const trendChartData = () => ({
 const trendOptions = {
   responsive: true,
   maintainAspectRatio: false,
-  plugins: { legend: { position: 'bottom' } },
+  plugins: {
+    legend: { position: 'bottom' },
+    datalabels: {
+      display: false,
+    },
+  },
   scales: {
     y: {
       type: 'linear',
       position: 'left',
-      ticks: { callback: (val) => formatCount(val) },
+      ticks: { callback: (val) => formatVolume(val) },
       grid: { color: '#f1f5f9' },
     },
     y2: {
@@ -281,7 +294,8 @@ watch(selectedRegion, async () => {
   await fetchAll()
 })
 
-watch(selectedArea, async () => {
+watch(selectedArea, async (newVal, oldVal) => {
+  if (!newVal.length && !oldVal.length) return
   selectedCabang.value = []
   const res = await api.getFilters({
     region: selectedRegion.value.join(','),
@@ -291,17 +305,18 @@ watch(selectedArea, async () => {
   await fetchAll()
 })
 
-watch([selectedCabang, selectedMonthFrom, selectedMonthTo], fetchAll)
+watch(selectedCabang, fetchAll)
+watch([selectedMonthFrom, selectedMonthTo], fetchAll)
 
 const fetchAllAgen = async () => {
   const res = await api.getAllAgen(getParams())
   return res.data
 }
 
-onMounted(async () => {
-  await fetchFilters()
-  await fetchAll()
-})
+// onMounted(async () => {
+//   await fetchFilters()
+//   await fetchAll()
+// })
 
 const sortKey = ref('volume_transaksi')
 const sortOrder = ref('desc')
@@ -350,7 +365,10 @@ const totalPages = computed(() => {
     </div>
 
     <!-- Filter -->
-    <div class="bg-linear-to-r from-teal-600 to-teal-400 rounded-xl shadow-sm p-4 mb-6">
+    <div
+      class="rounded-xl shadow-sm p-4 mb-6"
+      style="background: linear-gradient(135deg, #00a69f 55%, #f7941d 100%)"
+    >
       <p class="font-semibold text-white text-xl mb-4">Filter Data</p>
       <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-2">
         <Dropdown
@@ -394,34 +412,33 @@ const totalPages = computed(() => {
     <div v-else>
       <!-- KPI Cards — 4 kolom -->
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <!-- Total Agen -->
-        <div class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-[#00A69F]">
-          <p class="text-md text-gray-800 uppercase font-bold tracking-wide">Total Agen</p>
-          <p class="text-3xl font-bold text-gray-800 mt-2">
-            {{ stats.total_agen?.toLocaleString() }}
-          </p>
-          <p class="text-sm text-gray-400 mt-1">Agen terdaftar</p>
-        </div>
-        <!-- Total Volume -->
-        <div class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-[#00A69F]">
-          <p class="text-md text-gray-800 uppercase font-bold tracking-wide">Total Volume</p>
-          <p class="text-3xl font-bold text-gray-800 mt-2">
-            {{ formatVolume(stats.total_volume) }}
-          </p>
-          <p class="text-sm text-gray-400 mt-1">Volume keseluruhan</p>
-        </div>
-        <!-- Total Jumlah -->
-        <div class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-[#00A69F]">
-          <p class="text-md text-gray-800 uppercase font-bold tracking-wide">Total Transaksi</p>
-          <p class="text-3xl font-bold text-gray-800 mt-2">{{ formatCount(stats.total_jumlah) }}</p>
-          <p class="text-sm text-gray-400 mt-1">Transaksi keseluruhan</p>
-        </div>
-        <!-- Agen Aktif -->
-        <div class="bg-white rounded-xl shadow-sm p-5 border-l-4 border-[#00A69F]">
-          <p class="text-md text-gray-800 uppercase font-bold tracking-wide">Agen Aktif</p>
-          <p class="text-3xl font-bold text-gray-800 mt-2">{{ agenAktif?.toLocaleString() }}</p>
-          <p class="text-sm text-gray-400 mt-1">Bertransaksi aktif</p>
-        </div>
+        <KPICards
+          title="Total Agen"
+          :value="stats.total_agen?.toLocaleString()"
+          subtitle="Agen Terdaftar"
+          :change="stats.changes?.total_agen"
+          :comparison="stats.comparison_label"
+        />
+        <KPICards
+          title="Total Volume"
+          :value="formatVolume(stats.total_volume)"
+          subtitle="Volume Keseluruhan"
+          :change="stats.changes?.total_volume"
+          :comparison="stats.comparison_label"
+        />
+        <KPICards
+          title="Total Transaksi"
+          :value="formatCount(stats.total_jumlah)"
+          subtitle="Transaksi Keseluruhan"
+          :change="stats.changes?.total_jumlah"
+          :comparison="stats.comparison_label"
+        />
+        <KPICards
+          title="Agen Aktif"
+          :value="agenAktif?.toLocaleString()"
+          subtitle="Bertransaksi Aktif"
+          borderColor="#00A69F"
+        />
       </div>
 
       <!-- Chart Device & Region -->
@@ -431,7 +448,7 @@ const totalPages = computed(() => {
             <p class="font-semibold text-gray-700">Transaksi per Device</p>
             <PopUp name="device" :data="device" filename="transaksi_per_device" />
           </div>
-          <div class="h-64">
+          <div id="chart-container-device" class="h-64">
             <Bar :data="deviceChartData()" :options="chartOptions" />
           </div>
         </div>
@@ -441,7 +458,7 @@ const totalPages = computed(() => {
             <p class="font-semibold text-gray-700">Region Luar Aceh</p>
             <PopUp name="region" :data="region" filename="data_region_luar_aceh" />
           </div>
-          <div class="h-64">
+          <div id="chart-container-region" class="h-64">
             <Bar :data="regionChartData()" :options="chartOptions" />
           </div>
         </div>
@@ -454,103 +471,107 @@ const totalPages = computed(() => {
             <p class="font-semibold text-gray-700">Area Aceh</p>
             <PopUp name="aceh" :data="aceh" filename="data_area_aceh" />
           </div>
-          <div class="h-64"><Bar :data="acehChartData()" :options="chartOptions" /></div>
+          <div id="chart-container-aceh" class="h-64">
+            <Bar :data="acehChartData()" :options="chartOptions" />
+          </div>
         </div>
         <div class="bg-white rounded-xl shadow-sm p-5">
           <div class="flex justify-between items-center mb-4">
             <p class="font-semibold text-gray-700">Trend Transaksi Bulanan</p>
             <PopUp name="trend" :data="trend" filename="trend_bulanan" />
           </div>
-          <div class="h-64"><Line :data="trendChartData()" :options="trendOptions" /></div>
+          <div id="chart-container-trend" class="h-64">
+            <Line :data="trendChartData()" :options="trendOptions" />
+          </div>
         </div>
       </div>
 
       <!-- Pareto -->
-      <div class="bg-white rounded-xl shadow-sm p-5 mb-6">
+      <!-- <div class="bg-white rounded-xl shadow-sm p-5 mb-6">
         <div class="flex justify-between items-center mb-4">
           <p class="font-semibold text-gray-700">📊 Top 10 Produk Berdasarkan Volume Transaksi</p>
-          <PopUp name="pareto" :data="pareto" filename="pareto_produk" />
+          <PopUp name="pareto" :data="pareto" filename="pareto_produk" :is-table="true" />
         </div>
-        <ParetoChart :data="pareto" />
-      </div>
-
-      <!-- Map -->
-      <div class="bg-white rounded-xl shadow-sm p-5 mb-6">
-        <div class="flex justify-between items-center mb-4">
-          <p class="font-semibold text-gray-700">🗺️ Sebaran Agen per Kecamatan</p>
-          <PopUp name="map" :data="mapData" filename="sebaran_agen" />
+        <div id="chart-container-pareto">
+          <ParetoChart :data="pareto" />
         </div>
-        <MapChart :data="mapData" />
-      </div>
+      </div> -->
 
       <!-- Top 10 -->
       <div class="bg-white rounded-xl shadow-sm p-5">
         <div class="flex justify-between items-center mb-4">
           <p class="font-semibold text-gray-700">Top 10 Agen Berdasarkan Volume Transaksi</p>
-          <PopUp name="all_agen" :fetchData="fetchAllAgen" filename="data_all_agen" />
+          <PopUp
+            name="all_agen"
+            :fetchData="fetchAllAgen"
+            filename="data_all_agen"
+            :is-table="true"
+          />
         </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm min-w-175">
-            <thead>
-              <tr class="bg-[#00A69F] text-white">
-                <th class="px-4 py-3 text-left rounded-tl-lg">#</th>
-                <th class="px-4 py-3 text-left">Nama Agen</th>
-                <th class="px-4 py-3 text-left">Kode Agen</th>
-                <th class="px-4 py-3 text-left">Cabang</th>
-                <th class="px-4 py-3 text-left">Area</th>
-                <th class="px-4 py-3 text-left">Region</th>
-                <th class="px-4 py-3 text-left">Kecamatan</th>
-                <th
-                  @click="toogleSort('jumlah_transaksi')"
-                  class="px-4 py-3 text-left cursor-pointer"
+        <div id="chart-container-all_agen">
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm min-w-175">
+              <thead>
+                <tr class="bg-[#00A69F] text-white">
+                  <th class="px-4 py-3 text-left rounded-tl-lg">#</th>
+                  <th class="px-4 py-3 text-left">Nama Agen</th>
+                  <th class="px-4 py-3 text-left">Kode Agen</th>
+                  <th class="px-4 py-3 text-left">Cabang</th>
+                  <th class="px-4 py-3 text-left">Area</th>
+                  <th class="px-4 py-3 text-left">Region</th>
+                  <th class="px-4 py-3 text-left">Kecamatan</th>
+                  <th
+                    @click="toogleSort('jumlah_transaksi')"
+                    class="px-4 py-3 text-left cursor-pointer"
+                  >
+                    Jml Transaksi
+                    <span>{{
+                      sortKey === 'jumlah_transaksi' ? (sortOrder === 'asc' ? '↑' : '↓') : '↕'
+                    }}</span>
+                  </th>
+                  <th
+                    @click="toogleSort('volume_transaksi')"
+                    class="px-4 py-3 text-left cursor-pointer"
+                  >
+                    Volume Transaksi
+                    <span>{{
+                      sortKey === 'volume_transaksi' ? (sortOrder === 'asc' ? '↑' : '↓') : '↕'
+                    }}</span>
+                  </th>
+                  <th class="px-4 py-3 text-left cursor-pointer">Fee Bank</th>
+                  <th class="px-4 py-3 text-left rounded-tr-lg cursor-pointer">Fee Agen</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="(agen, i) in paginatedTop10"
+                  :key="agen.kode_agen"
+                  :class="i % 2 === 0 ? 'bg-gray-50' : 'bg-white'"
+                  class="hover:bg-teal-50 transition"
                 >
-                  Jml Transaksi
-                  <span>{{
-                    sortKey === 'jumlah_transaksi' ? (sortOrder === 'asc' ? '↑' : '↓') : '↕'
-                  }}</span>
-                </th>
-                <th
-                  @click="toogleSort('volume_transaksi')"
-                  class="px-4 py-3 text-left cursor-pointer"
-                >
-                  Volume Transaksi
-                  <span>{{
-                    sortKey === 'volume_transaksi' ? (sortOrder === 'asc' ? '↑' : '↓') : '↕'
-                  }}</span>
-                </th>
-                <th class="px-4 py-3 text-left cursor-pointer">Fee Bank</th>
-                <th class="px-4 py-3 text-left rounded-tr-lg cursor-pointer">Fee Agen</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="(agen, i) in paginatedTop10"
-                :key="agen.kode_agen"
-                :class="i % 2 === 0 ? 'bg-gray-50' : 'bg-white'"
-                class="hover:bg-teal-50 transition"
-              >
-                <td class="px-4 py-3 text-gray-400">
-                  {{ (currentPage - 1) * itemsPerPage + i + 1 }}
-                </td>
-                <td class="px-4 py-3 font-medium text-gray-800">{{ agen.nama_agen }}</td>
-                <td class="px-4 py-3 text-gray-500">{{ agen.kode_agen }}</td>
-                <td class="px-4 py-3 text-gray-500">{{ agen.nama_cabang }}</td>
-                <td class="px-4 py-3 text-gray-500">{{ agen.area }}</td>
-                <td class="px-4 py-3 text-gray-500">{{ agen.region }}</td>
-                <td class="px-4 py-3 text-gray-500">{{ agen.kecamatan }}</td>
-                <td class="px-4 py-3 text-gray-500">{{ formatCount(agen.jumlah_transaksi) }}</td>
-                <td class="px-4 py-3 font-semibold text-[#00A69F]">
-                  {{ formatVolume(agen.volume_transaksi) }}
-                </td>
-                <td class="px-4 py-3 font-semibold text-[#00A69F]">
-                  {{ formatVolume(agen.fee_bank) }}
-                </td>
-                <td class="px-4 py-3 font-semibold text-[#00A69F]">
-                  {{ formatVolume(agen.fee_agen) }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                  <td class="px-4 py-3 text-gray-400">
+                    {{ (currentPage - 1) * itemsPerPage + i + 1 }}
+                  </td>
+                  <td class="px-4 py-3 font-medium text-gray-800">{{ agen.nama_agen }}</td>
+                  <td class="px-4 py-3 text-gray-500">{{ agen.kode_agen }}</td>
+                  <td class="px-4 py-3 text-gray-500">{{ agen.nama_cabang }}</td>
+                  <td class="px-4 py-3 text-gray-500">{{ agen.area }}</td>
+                  <td class="px-4 py-3 text-gray-500">{{ agen.region }}</td>
+                  <td class="px-4 py-3 text-gray-500">{{ agen.kecamatan }}</td>
+                  <td class="px-4 py-3 text-gray-500">{{ formatCount(agen.jumlah_transaksi) }}</td>
+                  <td class="px-4 py-3 font-semibold text-[#00A69F]">
+                    {{ formatVolume(agen.volume_transaksi) }}
+                  </td>
+                  <td class="px-4 py-3 font-semibold text-[#00A69F]">
+                    {{ formatVolume(agen.fee_bank) }}
+                  </td>
+                  <td class="px-4 py-3 font-semibold text-[#00A69F]">
+                    {{ formatVolume(agen.fee_agen) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div class="flex justify-between items-center mt-4 px-2">

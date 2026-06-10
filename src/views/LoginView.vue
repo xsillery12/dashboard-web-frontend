@@ -13,6 +13,8 @@ const loading = ref(false)
 const error = ref('')
 
 const handleLogin = async () => {
+  event?.preventDefault()
+
   if (!email.value || !password.value) {
     error.value = 'Email atau Password Harus Diisi'
     return
@@ -23,7 +25,7 @@ const handleLogin = async () => {
 
   try {
     await authStore.login(email.value, password.value)
-    router.push('/dashboard')
+    router.push('/home')
   } catch (err) {
     error.value = err.response?.data?.detail || 'Email atau Password Salah'
   } finally {
@@ -58,8 +60,8 @@ const handleLogin = async () => {
         </p>
 
         <!-- Features -->
-        <div class="space-y-3 text-left">
-          <div v-for="item in features" :key="items" class="flex items-center gap-3 text-white">
+        <!-- <div class="space-y-3 text-left">
+          <div v-for="item in features" :key="item" class="flex items-center gap-3 text-white">
             <div class="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center shrink-0">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -78,7 +80,7 @@ const handleLogin = async () => {
             </div>
             <span class="text-sm">{{ item }}</span>
           </div>
-        </div>
+        </div> -->
       </div>
     </div>
 
@@ -127,7 +129,7 @@ const handleLogin = async () => {
                 v-model="email"
                 type="email"
                 placeholder="youremail@bsi.co.id"
-                @keyup.enter="handleLogin"
+                @keyup.enter.prevent="handleLogin"
                 class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00A69F] focus:border-transparent transition"
               />
             </div>
@@ -140,7 +142,7 @@ const handleLogin = async () => {
                   v-model="password"
                   :type="showPass ? 'text' : 'password'"
                   placeholder="••••••••"
-                  @keyup.enter="handleLogin"
+                  @keyup.enter.prevent="handleLogin"
                   class="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#00A69F] focus:border-transparent transition pr-12"
                 />
                 <button
@@ -190,7 +192,8 @@ const handleLogin = async () => {
 
             <!-- Login Submit Button -->
             <button
-              @click="handleLogin"
+              type="button"
+              @click.prevent="handleLogin"
               :disabled="loading"
               class="w-full bg-[#00A69F] hover:bg-teal-700 text-white py-3 rounded-xl font-semibold text-sm transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed mt-2"
             >

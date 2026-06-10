@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue'
+import { computed } from 'vue'
 import { Bar } from 'vue-chartjs'
 import {
   Chart as ChartJS,
@@ -26,19 +26,16 @@ ChartJS.register(
 
 const props = defineProps({
   data: { type: Array, default: () => [] },
+  metric: { type: String, default: 'count' },
 })
 
-const formatVolume = (n) => {
+const formatShort = (n) => {
+  if (!n) return '0'
   if (n >= 1_000_000_000_000) return `Rp${(n / 1_000_000_000_000).toFixed(1)}T`
   if (n >= 1_000_000_000) return `Rp${(n / 1_000_000_000).toFixed(1)}M`
   if (n >= 1_000_000) return `Rp${(n / 1_000_000).toFixed(1)}Jt`
+  if (n >= 1_000) return `Rp${(n / 1_000).toFixed(1)}K`
   return `Rp${n?.toLocaleString()}`
-}
-
-const formatCount = (n) => {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}Jt`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
-  return n?.toLocaleString()
 }
 
 const chartData = computed(() => ({
@@ -46,24 +43,39 @@ const chartData = computed(() => ({
   datasets: [
     {
       type: 'bar',
-      label: 'Volume Transaksi',
-      data: props.data.map((d) => d.volume_transaksi),
+      label: props.metric === 'volume' ? 'Total Volume' : 'Total Transaksi',
+      data: props.data.map((d) => d.total),
       backgroundColor: '#00A69F',
+      borderRadius: 6,
       yAxisID: 'y',
       order: 2,
+      datalabels: {
+        anchor: 'end',
+        align: 'top',
+        color: '#374151',
+        font: { weight: 'bold', size: 10 },
+        formatter: (v) => formatShort(v),
+      },
     },
     {
       type: 'line',
-      label: 'total %',
-      data: props.data.map((d) => d.total_persentase),
-      borderColor: '#f59e0b',
-      backgroundColor: 'rgba(245, 158, 11, 0.1)',
+      label: 'Cumulative %',
+      data: props.data.map((d) => d.cumulative_pct),
+      borderColor: '#F7941D',
+      backgroundColor: '#F7941D',
       borderWidth: 2,
-      pointBackgroundColor: '#f59e0b',
       pointRadius: 4,
-      fill: false,
+      pointBackgroundColor: '#F7941D',
+      tension: 0.3,
       yAxisID: 'y2',
       order: 1,
+      datalabels: {
+        align: 'top',
+        anchor: 'end',
+        color: '#F7941D',
+        font: { weight: 'bold', size: 10 },
+        formatter: (v) => formatShort(v),
+      },
     },
   ],
 }))
@@ -72,36 +84,47 @@ const chartOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
-    legend: { position: 'top' },
-    tooltip: {
-      callbacks: {
-        label: (ctx) => {
-          if (ctx.dataset.type === 'line') {
-            return `total: ${ctx.raw}%`
-          }
-          return `Volume: ${formatVolume(ctx.raw)}`
+    legend: { padding: { top: 20, right: 20 } },
+    plugins: {
+      legend: { position: 'bottom' },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            if (ctx.dataset.type === 'line') return `Cumulative: ${ctx.raw}%`
+            if (props.metric === 'volume') return `Volume: Rp${ctx.raw.toLocaleString()}`
+            return `Total: ${ctx.raw.toLocaleString()}`
+          },
         },
       },
     },
   },
   scales: {
-    y: {
-      type: 'linear',
-      position: 'left',
+    x: {
       ticks: {
-        callback: (val) => formatVolume(val),
+        autoSkip: false,
+        maxRotation: 45,
+        minRotation: 30,
+        font: { size: 10 },
       },
-      grid: { color: '#f1f5f9' },
+      grid: { display: false },
     },
-    y2: {
-      type: 'linear',
-      position: 'right',
-      min: 0,
-      max: 100,
+    y: {
+      beginAtZero: true,
+      title: { display: true, text: props.metric === 'volume' ? 'Volume' : 'Jumlah' },
+      grid: { color: '#f1f5f9' },
       ticks: {
-        callback: (val) => `${val}%`,
+        callback: (v) => formatShort(v),
       },
+    },
+    y1: {
+      beginAtZero: true,
+      max: 100,
+      position: 'right',
+      title: { display: true, text: 'Cumulative %' },
       grid: { drawOnChartArea: false },
+      ticks: {
+        callback: (v) => `${v}%`,
+      },
     },
   },
 }))
@@ -121,61 +144,8 @@ const exportCSV = () => {
   link.download = `pareto_produk_${new Date().toISOString().slice(0, 10)}.csv`
   link.click()
 }
-
-const isMenuOpen = ref(false)
-const handleClickOutside = (e) => {
-  if (!e.target.closest('#pareto-menu')) isMenuOpen.value = false
-}
-onMounted(() => document.addEventListener('click', handleClickOutside))
 </script>
 
 <template>
-  <div>
-    <!-- Chart -->
-    <!-- <div class="h-72 mb-6">
-      <Bar :data="chartData" :options="chartOptions" />
-    </div> -->
-
-    <!-- Tabel -->
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="bg-[#00A69F] text-white">
-            <th class="px-4 py-3 text-left rounded-tl-lg">#</th>
-            <th class="px-4 py-3 text-left">Produk</th>
-            <th class="px-4 py-3 text-right">Volume Transaksi</th>
-            <th class="px-4 py-3 text-right">Jumlah Transaksi</th>
-            <th class="px-4 py-3 text-right">Persentase</th>
-            <th class="px-4 py-3 text-right rounded-tr-lg">total %</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="(item, i) in data"
-            :key="item.produk"
-            :class="i % 2 === 0 ? 'bg-gray-50' : 'bg-white'"
-            class="hover:bg-teal-50 transition"
-          >
-            <td class="px-4 py-3 text-gray-400">{{ i + 1 }}</td>
-            <td class="px-4 py-3 font-medium text-gray-800">{{ item.produk }}</td>
-            <td class="px-4 py-3 text-right font-semibold text-[#00A69F]">
-              {{ formatVolume(item.volume_transaksi) }}
-            </td>
-            <td class="px-4 py-3 text-right text-gray-500">
-              {{ formatCount(item.jumlah_transaksi) }}
-            </td>
-            <td class="px-4 py-3 text-right text-gray-500">{{ item.persentase }}%</td>
-            <td class="px-4 py-3 text-right">
-              <span
-                class="font-semibold"
-                :class="item.total_persentase >= 80 ? 'text-amber-500' : 'text-gray-700'"
-              >
-                {{ item.total_persentase }}%
-              </span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+  <Bar :data="chartData" :options="chartOptions" />
 </template>

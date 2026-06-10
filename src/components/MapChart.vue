@@ -22,11 +22,11 @@ const getColor = (jumlahAgen) => {
 }
 
 const getRadius = (jumlahAgen) => {
-  if (jumlahAgen >= 500) return 30
-  if (jumlahAgen >= 200) return 22
-  if (jumlahAgen >= 100) return 16
-  if (jumlahAgen >= 50) return 11
-  return 7
+  if (jumlahAgen >= 500) return 13
+  if (jumlahAgen >= 200) return 11
+  if (jumlahAgen >= 100) return 9
+  if (jumlahAgen >= 50) return 7
+  return 5
 }
 
 const formatVolume = (n) => {
@@ -62,10 +62,6 @@ const renderMarkers = () => {
         <div style="display: flex; justify-content: space-between; font-size: 12px;">
           <span style="color: #475569;">Jumlah Agen</span>
           <span style="font-weight: 600;">${item.jumlah_agen?.toLocaleString()}</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-size: 12px; margin-top: 4px;">
-          <span style="color: #475569;">Volume</span>
-          <span style="font-weight: 600; color: #00836e;">${formatVolume(item.volume_transaksi)}</span>
         </div>
       </div>
     `)
