@@ -8,25 +8,59 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/dashboard',
+      redirect: '/home',
     },
     {
       path: '/dashboard',
-      name: 'dashboard',
-      component: DashboardView,
+      redirect: '/dashboard/monitoring-agen',
+    },
+    {
+      path: '/dashboard/monitoring-agen',
+      name: 'monitoring-agen',
+      component: () => import('../views/DashboardView.vue'),
       meta: { requiresAuth: true, title: 'Dashboard BSI Agen' },
     },
     {
-      path: '/upload',
-      name: 'upload',
-      component: UploadView,
-      meta: { requiresAuth: true, title: 'Upload - Dashboard BSI Agen' },
+      path: '/upload/agen',
+      name: 'upload-agen',
+      component: () => import('../views/UploadView.vue'),
+      meta: { requiresAuth: true, title: 'Upload Data Monitoring Agen' },
     },
     {
       path: '/login',
       name: 'login',
       component: LoginView,
       meta: { requiresAuth: false, title: 'Login - Dashboard BSI Agen' },
+    },
+    {
+      path: '/dashboard/transaksi',
+      name: 'transaksi',
+      component: () => import('../views/DashboardTransaksiView.vue'),
+      meta: { requiresAuth: true, title: 'Transaksi - Dashboard BSI Agen' },
+    },
+    {
+      path: '/upload/transaksi',
+      name: 'upload-transaksi',
+      component: () => import('../views/UploadTransaksiView.vue'),
+      meta: { requiresAuth: true, title: 'Upload Data Transaksi' },
+    },
+    {
+      path: '/home',
+      name: '/home',
+      component: () => import('../views/HomeView.vue'),
+      meta: { requiresAuth: true, title: 'Home - Dashboard BSI Agen' },
+    },
+    {
+      path: '/dashboard/heartbeat',
+      name: 'heartbeat',
+      component: () => import('../views/DashboardHeartbeatView.vue'),
+      meta: { requiresAuth: true, title: 'Heartbeat EDC — BSI Agen Dashboard' },
+    },
+    {
+      path: '/upload/heartbeat',
+      name: 'upload-heartbeat',
+      component: () => import('../views/UploadHeartbeatView.vue'),
+      meta: { requiresAuth: true, title: 'Upload Heartbeat EDC' },
     },
   ],
 })
@@ -46,7 +80,7 @@ router.beforeEach((to, from) => {
     return { name: 'login' }
   } else if (to.name === 'login' && token) {
     // Logging In -> redirect to Dashboard Page
-    return { name: 'dashboard' }
+    return { name: '/home' }
   }
   return true
 })

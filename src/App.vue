@@ -1,15 +1,26 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import NavBar from './components/NavBar.vue'
 import SideBar from './components/SideBar.vue'
+import { useIdleTimeout } from '@/composable/useIdleTimeout'
 
 const route = useRoute()
 const authStore = useAuthStore()
 const sidebarRef = ref(null)
 
 const showSideBar = computed(() => route.name !== 'login' && route.name !== 'register')
+
+watch(
+  () => route.path,
+  (path) => {
+    if (path !== '/login') {
+      useIdleTimeout(30)
+    }
+  },
+  { immediate: true },
+)
 
 onMounted(() => {
   authStore.initFromStorage()

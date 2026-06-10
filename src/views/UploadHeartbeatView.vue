@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch, computed, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import api from '../services/api'
 
 const file = ref(null)
@@ -12,37 +12,30 @@ const progress = ref(0)
 const now = ref(new Date())
 let timer = null
 
-// Format Tanggal dan Waktu
-const formattedDate = computed(() => {
-  return now.value.toLocaleDateString('id-ID', {
+const formattedDate = computed(() =>
+  now.value.toLocaleDateString('id-ID', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-  })
-})
+  }),
+)
 
-const formattedTime = computed(() => {
-  return now.value.toLocaleTimeString('id-ID', {
+const formattedTime = computed(() =>
+  now.value.toLocaleTimeString('id-ID', {
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-  })
-})
+  }),
+)
 
-onMounted(async () => {
-  // Real Timer
+onMounted(() => {
   timer = setInterval(() => {
     now.value = new Date()
   }, 1000)
-
-  // await fetchFilters()
-  // await fetchAll()
 })
 
-onUnmounted(() => {
-  clearInterval(timer)
-})
+onUnmounted(() => clearInterval(timer))
 
 const handleFileChange = (e) => {
   file.value = e.target.files[0]
@@ -53,12 +46,12 @@ const handleFileChange = (e) => {
 const handleDrop = (e) => {
   isDragging.value = false
   const dropped = e.dataTransfer.files[0]
-  if (dropped && dropped.name.endsWith('.xlsx')) {
+  if (dropped && (dropped.name.endsWith('.xlsx') || dropped.name.endsWith('.xls'))) {
     file.value = dropped
     uploadResult.value = null
     errorMessage.value = null
   } else {
-    errorMessage.value = 'File harus format .xlsx'
+    errorMessage.value = 'File harus format .xlsx atau .xls'
   }
 }
 
@@ -77,7 +70,7 @@ const uploadFile = async () => {
   let processingInterval = null
 
   try {
-    const res = await api.uploadExcel(formData, (percent) => {
+    const res = await api.uploadHeartbeat(formData, (percent) => {
       // Upload progress: 0% → 50%
       progress.value = Math.round(percent * 50)
 
@@ -105,8 +98,9 @@ const uploadFile = async () => {
 
 <template>
   <div class="p-6 max-w-full md:px-6">
+    <!-- Header -->
     <div class="flex items-center justify-between py-2.5 border-b-2 border-gray-300 mb-6">
-      <h1 class="font-semibold text-xl md:text-3xl">Upload Monitoring Agen</h1>
+      <h1 class="font-semibold text-xl md:text-3xl">Upload Heartbeat EDC</h1>
       <div class="text-right">
         <p class="text-sm font-semibold text-gray-700">{{ formattedDate }}</p>
         <p class="text-xl font-bold text-[#00A69F] tabular-nums">{{ formattedTime }}</p>
@@ -114,7 +108,7 @@ const uploadFile = async () => {
     </div>
 
     <p class="text-gray-500 text-sm mb-6">
-      Upload file Excel monitoring agen untuk memperbarui dashboard
+      Upload file Excel data heartbeat mesin EDC untuk memperbarui dashboard heartbeat
     </p>
 
     <!-- Drop Zone -->
@@ -128,13 +122,19 @@ const uploadFile = async () => {
       ]"
       @click="$refs.fileInput.click()"
     >
-      <input ref="fileInput" type="file" accept=".xlsx" class="hidden" @change="handleFileChange" />
+      <input
+        ref="fileInput"
+        type="file"
+        accept=".xlsx,.xls"
+        class="hidden"
+        @change="handleFileChange"
+      />
 
       <div v-if="!file">
         <div class="text-4xl mb-3">📂</div>
         <p class="text-gray-600 font-medium">Drag & drop file Excel di sini</p>
         <p class="text-gray-400 text-sm mt-1">atau klik untuk pilih file</p>
-        <p class="text-gray-300 text-xs mt-3">Format: .xlsx</p>
+        <p class="text-gray-300 text-xs mt-3">Format: .xlsx / .xls</p>
       </div>
 
       <div v-else class="text-left">
@@ -173,30 +173,20 @@ const uploadFile = async () => {
 
     <!-- Success -->
     <div v-if="uploadResult" class="mt-4 bg-teal-50 border border-teal-200 rounded-xl p-4">
-      <p class="text-teal-700 font-semibold mb-3">✅ Data berhasil diupload!</p>
-      <div class="grid grid-cols-3 gap-3">
+      <p class="text-teal-700 font-semibold mb-3">✅ {{ uploadResult.message }}</p>
+      <div class="grid grid-cols-1 gap-3">
         <div class="bg-white rounded-lg p-3 text-center shadow-sm">
           <p class="text-2xl font-bold text-[#00A69F]">
-            {{ uploadResult.total_agen.toLocaleString() }}
+            {{ uploadResult.total_rows?.toLocaleString() }}
           </p>
-          <p class="text-xs text-gray-500 mt-1">Total Agen</p>
-        </div>
-        <div class="bg-white rounded-lg p-3 text-center shadow-sm">
-          <p class="text-2xl font-bold text-[#00A69F]">
-            {{ uploadResult.total_rows.toLocaleString() }}
-          </p>
-          <p class="text-xs text-gray-500 mt-1">Total Baris</p>
-        </div>
-        <div class="bg-white rounded-lg p-3 text-center shadow-sm">
-          <p class="text-2xl font-bold text-[#00A69F]">{{ uploadResult.total_periode }}</p>
-          <p class="text-xs text-gray-500 mt-1">Total Periode</p>
+          <p class="text-xs text-gray-500 mt-1">Total Baris Heartbeat</p>
         </div>
       </div>
       <button
-        @click="$router.push('/dashboard')"
-        class="mt-4 w-full bg-[#00A69F] text-white py-2 rounded-lg font-semibold hover:bg-teal-700 transition cursor-pointer"
+        @click="$router.push('/dashboard/heartbeat')"
+        class="mt-4 w-full bg-[#00A69F] text-white py-2 rounded-lg font-semibold hover:bg-teal-700 transition"
       >
-        📊 Lihat Dashboard →
+        📊 Lihat Dashboard Heartbeat →
       </button>
     </div>
 
@@ -211,7 +201,7 @@ const uploadFile = async () => {
       @click="uploadFile"
       class="mt-4 w-full bg-[#00A69F] text-white py-3 rounded-xl font-semibold hover:bg-teal-700 transition"
     >
-      🔄 Proses & Upload Data
+      🔄 Proses & Upload Data Heartbeat
     </button>
   </div>
 </template>

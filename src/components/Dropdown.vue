@@ -14,6 +14,7 @@ const emit = defineEmits(['update:modelValue'])
 
 const isOpen = ref(false)
 const dropdownRef = ref(null)
+const searchQuery = ref('')
 
 const getLabel = (opt) => (typeof opt === 'object' ? opt[props.labelKey] : opt)
 const getValue = (opt) => (typeof opt === 'object' ? opt[props.valueKey] : opt)
@@ -53,7 +54,7 @@ const toggleOption = (opt) => {
     emit('update:modelValue', current)
   } else {
     emit('update:modelValue', val)
-    isOpen.value = false
+    closeDropdown()
   }
 }
 
@@ -61,9 +62,20 @@ const clearAll = () => {
   emit('update:modelValue', props.multiple ? [] : '')
 }
 
+const filteredOptions = computed(() => {
+  if (!searchQuery.value) return props.options
+  const q = searchQuery.value.toLowerCase()
+  return props.options.filter((opt) => String(getLabel(opt)).toLowerCase().includes(q))
+})
+
+const closeDropdown = () => {
+  isOpen.value = false
+  searchQuery.value = ''
+}
+
 const handleClickOutside = (e) => {
   if (dropdownRef.value && !dropdownRef.value.contains(e.target)) {
-    isOpen.value = false
+    closeDropdown()
   }
 }
 
@@ -129,89 +141,125 @@ onUnmounted(() => document.removeEventListener('click', handleClickOutside))
     <!-- Dropdown -->
     <div
       v-if="isOpen"
-      class="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-60 overflow-y-auto"
+      class="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-72 overflow-hidden flex flex-col"
     >
-      <!-- Select All (hanya untuk multiple) -->
-      <div
-        v-if="multiple && options.length > 0"
-        @click="
-          selectedValues.length === options.length
-            ? clearAll()
-            : emit(
-                'update:modelValue',
-                options.map((o) => getValue(o)),
-              )
-        "
-        class="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
-      >
+      <!-- Search Input -->
+      <div class="p-2 border-b border-gray-100 sticky top-0 bg-white">
+        <div class="relative">
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="Cari..."
+            @click.stop
+            class="w-full pl-8 pr-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#00A69F] focus:border-[#00A69F]"
+          />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+        </div>
+      </div>
+
+      <!-- Scrollable Options -->
+      <div class="overflow-y-auto max-h-60">
+        <!-- Select All (hanya untuk multiple, dan saat tidak search) -->
         <div
-          :class="[
-            'w-4 h-4 rounded border flex items-center justify-center shrink-0',
+          v-if="multiple && filteredOptions.length > 0 && !searchQuery"
+          @click="
             selectedValues.length === options.length
-              ? 'bg-[#00A69F] border-[#00A69F]'
-              : 'border-gray-300',
-          ]"
+              ? clearAll()
+              : emit(
+                  'update:modelValue',
+                  options.map((o) => getValue(o)),
+                )
+          "
+          class="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
         >
-          <svg
-            v-if="selectedValues.length === options.length"
-            xmlns="http://www.w3.org/2000/svg"
-            class="w-3 h-3 text-white"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+          <div
+            :class="[
+              'w-4 h-4 rounded border flex items-center justify-center shrink-0',
+              selectedValues.length === options.length
+                ? 'bg-[#00A69F] border-[#00A69F]'
+                : 'border-gray-300',
+            ]"
           >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="3"
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
-          <div v-else-if="selectedValues.length > 0" class="w-2 h-2 bg-[#00A69F] rounded-sm"></div>
+            <svg
+              v-if="selectedValues.length === options.length"
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-3 h-3 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="3"
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+            <div
+              v-else-if="selectedValues.length > 0"
+              class="w-2 h-2 bg-[#00A69F] rounded-sm"
+            ></div>
+          </div>
+          <span class="text-sm font-medium text-gray-600">Pilih Semua</span>
         </div>
-        <span class="text-sm font-medium text-gray-600">Pilih Semua</span>
-      </div>
 
-      <!-- Options -->
-      <div
-        v-for="opt in options"
-        :key="getValue(opt)"
-        @click="toggleOption(opt)"
-        class="flex items-center gap-2 px-3 py-2 hover:bg-teal-50 cursor-pointer transition"
-      >
-        <!-- Checkbox untuk multiple -->
+        <!-- Options -->
         <div
-          v-if="multiple"
-          :class="[
-            'w-4 h-4 rounded border flex items-center justify-center shrink-0 transition',
-            isSelected(opt) ? 'bg-[#00A69F] border-[#00A69F]' : 'border-gray-300',
-          ]"
+          v-for="opt in filteredOptions"
+          :key="getValue(opt)"
+          @click="toggleOption(opt)"
+          class="flex items-center gap-2 px-3 py-2 hover:bg-teal-50 cursor-pointer transition"
         >
-          <svg
-            v-if="isSelected(opt)"
-            xmlns="http://www.w3.org/2000/svg"
-            class="w-3 h-3 text-white"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+          <!-- Checkbox untuk multiple -->
+          <div
+            v-if="multiple"
+            :class="[
+              'w-4 h-4 rounded border flex items-center justify-center shrink-0 transition',
+              isSelected(opt) ? 'bg-[#00A69F] border-[#00A69F]' : 'border-gray-300',
+            ]"
           >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="3"
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
+            <svg
+              v-if="isSelected(opt)"
+              xmlns="http://www.w3.org/2000/svg"
+              class="w-3 h-3 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="3"
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          </div>
+          <!-- Dot untuk single -->
+          <div v-else class="w-4 h-4 flex items-center justify-center shrink-0">
+            <div v-if="isSelected(opt)" class="w-2 h-2 rounded-full bg-[#00A69F]"></div>
+          </div>
+          <span class="text-sm text-gray-700">{{ getLabel(opt) }}</span>
         </div>
-        <!-- Dot untuk single -->
-        <div v-else class="w-4 h-4 flex items-center justify-center shrink-0">
-          <div v-if="isSelected(opt)" class="w-2 h-2 rounded-full bg-[#00A69F]"></div>
-        </div>
-        <span class="text-sm text-gray-700">{{ getLabel(opt) }}</span>
-      </div>
 
-      <div v-if="options.length === 0" class="px-3 py-4 text-center text-sm text-gray-400">
-        Tidak ada pilihan
+        <div
+          v-if="filteredOptions.length === 0"
+          class="px-3 py-4 text-center text-sm text-gray-400"
+        >
+          {{ searchQuery ? 'Tidak ada hasil' : 'Tidak ada pilihan' }}
+        </div>
       </div>
     </div>
   </div>
